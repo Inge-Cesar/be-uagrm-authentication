@@ -86,7 +86,29 @@ class SecureDeviceLoginSerializer(TokenObtainPairSerializer):
         token_data = super().validate(attrs)
         user = self.user
 
-        # 2. Verificar o Registrar Dispositivo en DB SQL
+        # BYPASS COMPLETO: Superusuarios no requieren validación de dispositivo
+        if user.is_superuser:
+            # Registrar el dispositivo pero no validar autorización
+            device, _ = Device.objects.get_or_create(
+                device_hash=device_hash,
+                defaults={'hostname': data_request.get('hostname', 'Desconocido')}
+            )
+            user_device, _ = UserDevice.objects.get_or_create(user=user, device=device)
+            # Auto-autorizar
+            if not user_device.authorized:
+                user_device.authorized = True
+                user_device.save()
+            
+            # Actualizar último login
+            user_device.last_login = timezone.now()
+            user_device.last_ip = get_client_ip(self.context['request'])
+            user_device.save()
+            
+            # Retornar token directamente sin más validaciones
+            token_data['device_hash'] = device_hash
+            return token_data
+
+        # 2. Verificar o Registrar Dispositivo en DB SQL (usuarios normales)
         device, _ = Device.objects.get_or_create(
             device_hash=device_hash,
             defaults={'hostname': data_request.get('hostname', 'Desconocido')}
@@ -94,7 +116,7 @@ class SecureDeviceLoginSerializer(TokenObtainPairSerializer):
 
         user_device, _ = UserDevice.objects.get_or_create(user=user, device=device)
 
-        # 3. Verificar Autorización (Lista Blanca)
+        # 3. Verificar Autorización (Lista Blanca) - solo usuarios normales
         if not user_device.authorized:
             self.notify_admin_new_device(user, device)
             self.send_security_email(user, device, status="pendiente")
@@ -173,3 +195,52 @@ class SecureDeviceLoginSerializer(TokenObtainPairSerializer):
             )
         except:
             pass                
+
+# ============================================
+# ADMIN: Device Management Serializers
+# ============================================
+
+class DeviceFingerprintSerializer(serializers.ModelSerializer):
+    """Serializer for hardware fingerprint details"""
+    class Meta:
+        model = DeviceFingerprint
+        fields = [
+            'uuid_sistema',
+            'numero_serie_cpu',
+            'numero_serie_disco',
+            'baseboard_serial',
+            'bios_serial',
+            'mac_address',
+            'nombre_maquina'
+        ]
+
+class DeviceSerializer(serializers.ModelSerializer):
+    """Serializer for device information"""
+    class Meta:
+        model = Device
+        fields = ['id', 'device_hash', 'hostname', 'os', 'created_at']
+
+class UserDeviceListSerializer(serializers.ModelSerializer):
+    """Serializer for listing user devices with full details"""
+    user = UserPublicSerializer(read_only=True)
+    device = DeviceSerializer(read_only=True)
+    fingerprint = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = UserDevice
+        fields = [
+            'id',
+            'user',
+            'device',
+            'fingerprint',
+            'authorized',
+            'last_login',
+            'last_ip'
+        ]
+    
+    def get_fingerprint(self, obj):
+        try:
+            fingerprint = DeviceFingerprint.objects.get(device=obj.device)
+            return DeviceFingerprintSerializer(fingerprint).data
+        except DeviceFingerprint.DoesNotExist:
+            return None

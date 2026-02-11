@@ -17,11 +17,17 @@ from .views import (
     SSOLogoutView,
     SSOLoginView,
 )
-
+from .secure_views import SecureDeviceLoginView
+from .admin_views import (
+    UserDeviceListView,
+    AuthorizeDeviceView,
+    RevokeDeviceView
+)
 
 urlpatterns = [
     path("update_user/", UpdateUserInformationView.as_view()),
     path("sso-login/", SSOLoginView.as_view(), name="sso-login"),
+    path("secure-device-login/", SecureDeviceLoginView.as_view(), name="secure-device-login"), # NEW
     path("generate_qr_code/",GenerateQRCodeView.as_view(),name="generate-qr-code-view",),
     path("otp_login_reset/", OTPLoginResetView.as_view(), name="otp-login-reset-view"),
     path("verify_otp/", VerifyOTPView.as_view()),
@@ -36,4 +42,9 @@ urlpatterns = [
     # SSO Portal
     path("mis-sistemas/", MisSistemasView.as_view(), name="mis-sistemas"),
     path("logout/", SSOLogoutView.as_view(), name="sso-logout"),
+    
+    # Admin: Device Management
+    path("user-devices/", UserDeviceListView.as_view(), name="user-devices-list"),
+    path("user-devices/<uuid:device_id>/authorize/", AuthorizeDeviceView.as_view(), name="authorize-device"),
+    path("user-devices/<uuid:device_id>/revoke/", RevokeDeviceView.as_view(), name="revoke-device"),
 ]
