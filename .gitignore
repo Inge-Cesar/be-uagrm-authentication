@@ -50,6 +50,12 @@ create_mario_simple.py
 make_admin_superuser.py
 scripts/
 
+# Keys (sensitive)
+*.key
+*.pem
+rsa_private.key
+rsa_public.key
+
 # OS
 .DS_Store
 Thumbs.db
