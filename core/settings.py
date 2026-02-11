@@ -319,8 +319,14 @@ AWS_S3_OBJECT_PARAMETERS = {
 
 # Configuración de archivos estáticos
 STATIC_LOCATION = "static"
-STATIC_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
-STATICFILES_STORAGE = "core.storage_backends.StaticStorage"
+
+if DEBUG:
+    STATIC_URL = '/static/'
+    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
+else:
+    STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
+    STATICFILES_STORAGE = "core.storage_backends.StaticStorage"
 
 # Configuración de archivos de medios
 if DEBUG:
